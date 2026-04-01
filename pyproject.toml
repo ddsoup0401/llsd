@@ -64,10 +64,10 @@ notebooks = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/llsd"
-Repository = "https://github.com/yourusername/llsd"
-Issues = "https://github.com/yourusername/llsd/issues"
-Documentation = "https://github.com/yourusername/llsd/blob/main/README.md"
+Homepage = "https://github.com/ddsoup0401/llsd"
+Repository = "https://github.com/ddsoup0401/llsd"
+Issues = "https://github.com/ddsoup0401/llsd/issues"
+Documentation = "https://github.com/ddsoup0401/llsd/blob/main/README.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/llsd"]

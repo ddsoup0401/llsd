@@ -26,7 +26,7 @@ pip install llsd
 For development:
 
 ```bash
-git clone https://github.com/yourusername/llsd.git
+git clone https://github.com/ddsoup0401/llsd.git
 cd llsd
 pip install -e ".[dev]"
 ```

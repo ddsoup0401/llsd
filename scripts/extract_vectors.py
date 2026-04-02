@@ -6,6 +6,7 @@ Usage:
 
 import argparse
 from pathlib import Path
+import torch
 from llsd import extract_steering_vectors
 from llsd.dataset import load_contrastive_pairs
 

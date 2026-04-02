@@ -135,26 +135,22 @@ vectors = extract_steering_vectors(
 )
 
 # Save for later use
-vectors.save("my_custom_vectors.pt")
+import torch
+torch.save(vectors, "my_custom_vectors.pt")
 ```
 
-### Multi-Vector Steering
+### Multi-Vector Steering (Coming in Phase 2)
 
 Combine multiple steering dimensions:
 
 ```python
-model.load_vectors({
-    "divergent": "vectors/divergent.pt",
-    "poetic": "vectors/poetic.pt",
-    "technical": "vectors/technical.pt",
-})
+# Load different vector types
+model.load_vectors("vectors/divergent.pt", name="divergent")
+model.load_vectors("vectors/poetic.pt", name="poetic")
 
-# Mix steering directions
-model.set_multi_steering({
-    "divergent": 1.5,
-    "poetic": 0.8,
-    "technical": -0.5  # Negative = steer away
-})
+# Note: Multi-vector steering will be available in Phase 2
+# For now, use single vectors with set_divergence()
+model.set_divergence(1.5)
 ```
 
 ## Project Structure
@@ -206,11 +202,11 @@ LLSD is designed for research into:
 If you use LLSD in your research, please cite:
 
 ```bibtex
-@software{llsd2024,
+@software{llsd2026,
   title = {LLSD: Controlled Divergent Thinking via Activation Steering},
-  author = {Your Name},
-  year = {2024},
-  url = {https://github.com/yourusername/llsd}
+  author = {ddsoup0401},
+  year = {2026},
+  url = {https://github.com/ddsoup0401/llsd}
 }
 ```
 

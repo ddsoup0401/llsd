@@ -1,15 +1,16 @@
 """Utility functions for LLSD."""
 
-import torch
 from typing import Optional
+
+import torch
 
 
 def get_device(prefer_cuda: bool = True) -> torch.device:
     """Get the best available device.
-    
+
     Args:
         prefer_cuda: Whether to prefer CUDA if available
-        
+
     Returns:
         torch.device instance
     """
@@ -20,10 +21,10 @@ def get_device(prefer_cuda: bool = True) -> torch.device:
 
 def get_model_info(model) -> dict:
     """Extract useful information about a model.
-    
+
     Args:
         model: HuggingFace model
-        
+
     Returns:
         Dict with keys: n_layers, hidden_dim, device, dtype
     """
@@ -36,14 +37,14 @@ def estimate_vram_usage(
     quantization: Optional[str] = None,
 ) -> float:
     """Estimate VRAM usage for a model.
-    
+
     Args:
         model_size_b: Model size in billions of parameters
         quantization: "8bit", "4bit", or None
-        
+
     Returns:
         Estimated VRAM in GB
-        
+
     Example:
         >>> estimate_vram_usage(8.0, quantization="8bit")
         8.5
@@ -62,15 +63,15 @@ def format_generation_output(
     remove_prompt: bool = True,
 ) -> str:
     """Format model generation output.
-    
+
     Args:
         output: Raw model output
         prompt: Original prompt
         remove_prompt: Whether to remove prompt from output
-        
+
     Returns:
         Formatted output string
     """
     if remove_prompt and output.startswith(prompt):
-        return output[len(prompt):].strip()
+        return output[len(prompt) :].strip()
     return output.strip()

@@ -5,10 +5,8 @@ Usage:
 """
 
 import argparse
-from pathlib import Path
-import torch
-from llsd import SteeringModel
 
+from llsd import SteeringModel
 
 TEST_PROMPTS = [
     "What is recursion?",
@@ -23,20 +21,17 @@ def main():
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--vectors", type=str, required=True)
     parser.add_argument("--load-in-8bit", action="store_true")
-    
+
     args = parser.parse_args()
-    
+
     print("Loading model...")
-    model = SteeringModel.from_pretrained(
-        args.model,
-        load_in_8bit=args.load_in_8bit
-    )
-    
+    model = SteeringModel.from_pretrained(args.model, load_in_8bit=args.load_in_8bit)
+
     print("Loading vectors...")
     model.load_vectors(args.vectors)
-    
+
     print("\nRunning validation tests...\n")
-    
+
     # Test 1: Alpha = 0 should match unsteered
     print("=" * 60)
     print("TEST 1: Alpha=0 matches unsteered output")
@@ -47,7 +42,7 @@ def main():
         print(f"Prompt: {prompt}")
         print(f"Output: {output[:100]}...")
         print()
-    
+
     # Test 2: Different alphas produce different outputs
     print("=" * 60)
     print("TEST 2: Varying alpha produces different outputs")
@@ -57,7 +52,7 @@ def main():
         output = model.generate(TEST_PROMPTS[0], max_new_tokens=50)
         print(f"Alpha={alpha}: {output[:100]}...")
         print()
-    
+
     print("Evaluation complete!")
 
 

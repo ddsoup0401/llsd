@@ -1,6 +1,6 @@
 """Model loading and steering interface."""
 
-from typing import Optional, Union
+from typing import Optional, Union, cast
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
@@ -36,9 +36,9 @@ class SteeringModel:
         """
         self.model = model
         self.tokenizer = tokenizer
-        self.device = device or next(model.parameters()).device
+        self.device = device or next(model.parameters()).device  # type: ignore[attr-defined]
         self.steering_vectors: dict[str, dict[int, torch.Tensor]] = {}
-        self._injector = None
+        self._injector: Optional[SteeringInjector] = None
 
     @classmethod
     def from_pretrained(
@@ -95,19 +95,21 @@ class SteeringModel:
         """
         if isinstance(vectors, str):
             # Single file path
-            loaded = torch.load(vectors, map_location="cpu")
+            loaded: dict[int, torch.Tensor] = torch.load(vectors, map_location="cpu")
             self.steering_vectors[name] = loaded
         elif isinstance(vectors, dict):
             # Check if it's a dict of paths or dict of tensors
             first_value = next(iter(vectors.values()))
             if isinstance(first_value, str):
-                # Dict of paths
-                for vec_name, path in vectors.items():
-                    loaded = torch.load(path, map_location="cpu")
-                    self.steering_vectors[vec_name] = loaded
+                # Dict of paths - cast to correct type
+                path_dict = cast(dict[str, str], vectors)
+                for vec_name, path in path_dict.items():
+                    loaded_vec: dict[int, torch.Tensor] = torch.load(path, map_location="cpu")
+                    self.steering_vectors[vec_name] = loaded_vec
             else:
-                # Dict of tensors (already loaded)
-                self.steering_vectors[name] = vectors
+                # Dict of tensors (already loaded) - cast to correct type
+                tensor_dict = cast(dict[int, torch.Tensor], vectors)
+                self.steering_vectors[name] = tensor_dict
         else:
             raise ValueError("vectors must be a path string or dict")
 
@@ -144,7 +146,7 @@ class SteeringModel:
 
         # Create new injector with specified alpha
         self._injector = SteeringInjector(
-            model=self.model,
+            model=self.model,  # type: ignore[arg-type]
             steering_vectors=self.steering_vectors["default"],
             alpha=alpha,
         )
@@ -190,22 +192,24 @@ class SteeringModel:
             ... )
         """
         # Tokenize input
-        inputs = self.tokenizer(prompt, return_tensors="pt")
+        inputs = self.tokenizer(prompt, return_tensors="pt")  # type: ignore[operator]
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
         # Generate with steering hooks active
         with torch.no_grad():
-            outputs = self.model.generate(
+            outputs = self.model.generate(  # type: ignore[attr-defined]
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 temperature=temperature,
                 do_sample=temperature > 0,
-                pad_token_id=self.tokenizer.eos_token_id,
+                pad_token_id=self.tokenizer.eos_token_id,  # type: ignore[attr-defined]
                 **kwargs,
             )
 
         # Decode output
-        generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        generated_text: str = self.tokenizer.decode(  # type: ignore[attr-defined]
+            outputs[0], skip_special_tokens=True
+        )
         return generated_text
 
     def remove_steering(self):
@@ -272,4 +276,4 @@ def load_model_with_quantization(
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    return model, tokenizer
+    return model, tokenizer  # type: ignore[return-value]

@@ -185,7 +185,7 @@ def capture_activations_for_prompts(
     # Create activation capture
     capture = ActivationCapture(model, layers)
 
-    all_activations = {layer: [] for layer in layers}
+    all_activations: dict[int, list[torch.Tensor]] = {layer: [] for layer in layers}
 
     # Process prompts one by one to avoid memory issues
     with torch.no_grad():
@@ -247,7 +247,8 @@ def load_vectors(path: str) -> dict[int, torch.Tensor]:
     Example:
         >>> vectors = load_vectors("my_vectors.pt")
     """
-    return torch.load(path, map_location="cpu")
+    loaded: dict[int, torch.Tensor] = torch.load(path, map_location="cpu")
+    return loaded
 
 
 def analyze_vector_quality(

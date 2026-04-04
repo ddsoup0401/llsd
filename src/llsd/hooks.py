@@ -206,7 +206,7 @@ def get_layer_from_model(model: nn.Module, layer_idx: int) -> nn.Module:
     Example:
         >>> layer = get_layer_from_model(model, 16)
     """
-    return model.model.layers[layer_idx]
+    return model.model.layers[layer_idx]  # type: ignore[union-attr, index, return-value]
 
 
 def normalize_vector(vector: torch.Tensor, norm_type: str = "l2") -> torch.Tensor:
@@ -220,9 +220,9 @@ def normalize_vector(vector: torch.Tensor, norm_type: str = "l2") -> torch.Tenso
         Normalized vector
     """
     if norm_type == "l2":
-        return vector / (torch.norm(vector) + 1e-8)
+        return vector / (torch.norm(vector) + 1e-8)  # type: ignore[no-any-return]
     elif norm_type == "unit":
-        return vector / vector.abs().max()
+        return vector / vector.abs().max()  # type: ignore[no-any-return]
     elif norm_type == "none":
         return vector
     else:

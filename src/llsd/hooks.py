@@ -37,8 +37,10 @@ class ActivationCapture:
 
     def _register_hooks(self):
         """Register forward hooks on target layers."""
-        # TODO: Implement hook registration for model.model.layers[i]
-        raise NotImplementedError("Hook registration will be implemented in Phase 1")
+        for layer_idx in self.layer_indices:
+            layer = get_layer_from_model(self.model, layer_idx)
+            hook = layer.register_forward_hook(self._make_hook(layer_idx))
+            self.hooks.append(hook)
 
     def _make_hook(self, layer_idx: int) -> Callable:
         """Create a forward hook function for a specific layer.
@@ -53,8 +55,13 @@ class ActivationCapture:
         def hook(module, input, output):
             # Extract hidden states from output tuple
             # output[0] is typically [batch, seq_len, hidden_dim]
-            # TODO: Implement activation extraction and storage
-            pass
+            if isinstance(output, tuple):
+                hidden_states = output[0]
+            else:
+                hidden_states = output
+
+            # Store the activations
+            self.activations[layer_idx] = hidden_states.detach()
 
         return hook
 
@@ -77,8 +84,11 @@ class ActivationCapture:
         Returns:
             Tensor of shape [batch, hidden_dim]
         """
-        # TODO: Implement last token extraction
-        raise NotImplementedError("Token position selection will be implemented in Phase 1")
+        if layer_idx not in self.activations:
+            raise ValueError(f"No activations captured for layer {layer_idx}")
+
+        # Get last token: shape [batch, seq_len, hidden_dim] -> [batch, hidden_dim]
+        return self.activations[layer_idx][:, -1, :]
 
 
 class SteeringInjector:
@@ -121,8 +131,10 @@ class SteeringInjector:
 
     def _register_hooks(self):
         """Register forward hooks for steering injection."""
-        # TODO: Implement injection hooks
-        raise NotImplementedError("Injection hooks will be implemented in Phase 1")
+        for layer_idx, vector in self.steering_vectors.items():
+            layer = get_layer_from_model(self.model, layer_idx)
+            hook = layer.register_forward_hook(self._make_steering_hook(vector))
+            self.hooks.append(hook)
 
     def _make_steering_hook(self, vector: torch.Tensor) -> Callable:
         """Create a hook that adds a steering vector to activations.
@@ -136,9 +148,33 @@ class SteeringInjector:
 
         def hook(module, input, output):
             # Modify hidden states: h' = h + alpha * vector
-            # TODO: Implement steering injection
-            # Handle different injection modes (all_tokens vs last_token)
-            pass
+            if isinstance(output, tuple):
+                hidden_states = output[0]
+                rest = output[1:]
+            else:
+                hidden_states = output
+                rest = None
+
+            # Move vector to same device/dtype as hidden states
+            vec = vector.to(hidden_states.device).to(hidden_states.dtype)
+
+            # Apply steering based on injection mode
+            if self.injection_mode == "all_tokens":
+                # Add to all token positions
+                hidden_states = hidden_states + self.alpha * vec
+            elif self.injection_mode == "last_token":
+                # Add only to last token position
+                hidden_states[:, -1, :] = hidden_states[:, -1, :] + self.alpha * vec
+            elif self.injection_mode == "prefill_only":
+                # Only during prefill (seq_len > 1)
+                if hidden_states.shape[1] > 1:
+                    hidden_states = hidden_states + self.alpha * vec
+
+            # Return modified output in original format
+            if rest is not None:
+                return (hidden_states,) + rest
+            else:
+                return hidden_states
 
         return hook
 
@@ -170,8 +206,7 @@ def get_layer_from_model(model: nn.Module, layer_idx: int) -> nn.Module:
     Example:
         >>> layer = get_layer_from_model(model, 16)
     """
-    # TODO: Implement layer access (e.g., model.model.layers[layer_idx])
-    raise NotImplementedError("Layer access will be implemented in Phase 1")
+    return model.model.layers[layer_idx]
 
 
 def normalize_vector(vector: torch.Tensor, norm_type: str = "l2") -> torch.Tensor:

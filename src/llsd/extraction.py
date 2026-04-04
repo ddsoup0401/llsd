@@ -5,6 +5,9 @@ from typing import Literal
 import torch
 from sklearn.decomposition import PCA
 
+from llsd.hooks import ActivationCapture
+from llsd.model import load_model_with_quantization
+
 
 def extract_steering_vectors(
     model_name: str,
@@ -43,13 +46,50 @@ def extract_steering_vectors(
         ...     layers=[12, 16, 20]
         ... )
     """
-    # TODO: Implement full extraction pipeline:
-    # 1. Load model
-    # 2. Setup ActivationCapture
-    # 3. Run rigid and divergent prompts
-    # 4. Compute steering vectors
-    # 5. Return per-layer vectors
-    raise NotImplementedError("Extraction pipeline will be implemented in Phase 1")
+    print(f"Loading model: {model_name}")
+    model, tokenizer = load_model_with_quantization(
+        model_name=model_name, load_in_8bit=load_in_8bit, **model_kwargs
+    )
+
+    # Extract prompts from pairs
+    rigid_prompts = []
+    divergent_prompts = []
+
+    for pair in pairs:
+        # Support both "rigid"/"divergent" and "rigid_prompt"/"divergent_prompt" keys
+        rigid_key = "rigid" if "rigid" in pair else "rigid_prompt"
+        divergent_key = "divergent" if "divergent" in pair else "divergent_prompt"
+
+        rigid_prompts.append(pair[rigid_key])
+        divergent_prompts.append(pair[divergent_key])
+
+    print(f"Capturing activations for {len(rigid_prompts)} rigid prompts...")
+    rigid_activations = capture_activations_for_prompts(model, tokenizer, rigid_prompts, layers)
+
+    print(f"Capturing activations for {len(divergent_prompts)} divergent prompts...")
+    divergent_activations = capture_activations_for_prompts(
+        model, tokenizer, divergent_prompts, layers
+    )
+
+    # Compute steering vectors per layer
+    print(f"Computing steering vectors using method: {method}")
+    vectors = {}
+    for layer in layers:
+        rigid_acts = rigid_activations[layer]
+        divergent_acts = divergent_activations[layer]
+
+        if method == "mean_diff":
+            vectors[layer] = compute_mean_diff(rigid_acts, divergent_acts)
+        elif method == "pca":
+            vectors[layer] = compute_pca_direction(rigid_acts, divergent_acts, n_components)
+        else:
+            raise ValueError(f"Unknown method: {method}")
+
+        print(
+            f"  Layer {layer}: vector shape {vectors[layer].shape}, norm {vectors[layer].norm():.2f}"
+        )
+
+    return vectors
 
 
 def compute_mean_diff(
@@ -142,8 +182,44 @@ def capture_activations_for_prompts(
         ...     model, tokenizer, prompts, layers=[16]
         ... )
     """
-    # TODO: Implement prompt batching and activation capture
-    raise NotImplementedError("Activation capture will be implemented in Phase 1")
+    # Create activation capture
+    capture = ActivationCapture(model, layers)
+
+    all_activations = {layer: [] for layer in layers}
+
+    # Process prompts one by one to avoid memory issues
+    with torch.no_grad():
+        for prompt in prompts:
+            # Tokenize
+            inputs = tokenizer(prompt, return_tensors="pt", padding=True)
+            inputs = {k: v.to(model.device) for k, v in inputs.items()}
+
+            # Clear previous activations
+            capture.clear()
+
+            # Forward pass
+            model(**inputs)
+
+            # Collect activations
+            for layer in layers:
+                if token_position == "last":
+                    act = capture.get_last_token_activations(layer)
+                elif token_position == "mean":
+                    act = capture.activations[layer].mean(dim=1)  # [batch, hidden_dim]
+                else:
+                    raise ValueError(f"Unknown token_position: {token_position}")
+
+                all_activations[layer].append(act)
+
+    # Stack activations
+    result = {}
+    for layer in layers:
+        result[layer] = torch.cat(all_activations[layer], dim=0)  # [n_prompts, hidden_dim]
+
+    # Clean up hooks
+    capture.remove_hooks()
+
+    return result
 
 
 def save_vectors(vectors: dict[int, torch.Tensor], path: str):
@@ -196,5 +272,16 @@ def analyze_vector_quality(
             - separation: Difference between projections
             - vector_norm: L2 norm of the vector
     """
-    # TODO: Implement quality analysis
-    raise NotImplementedError("Vector analysis will be implemented in Phase 1")
+    # Normalize vector for projection
+    vector_normalized = vector / (vector.norm() + 1e-8)
+
+    # Compute projections
+    rigid_proj = (rigid_acts @ vector_normalized).cpu()
+    divergent_proj = (divergent_acts @ vector_normalized).cpu()
+
+    return {
+        "mean_rigid_proj": float(rigid_proj.mean()),
+        "mean_divergent_proj": float(divergent_proj.mean()),
+        "separation": float(divergent_proj.mean() - rigid_proj.mean()),
+        "vector_norm": float(vector.norm()),
+    }

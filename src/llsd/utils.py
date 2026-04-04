@@ -28,8 +28,12 @@ def get_model_info(model) -> dict:
     Returns:
         Dict with keys: n_layers, hidden_dim, device, dtype
     """
-    # TODO: Implement model introspection
-    raise NotImplementedError("Model info extraction will be implemented in Phase 1")
+    return {
+        "n_layers": len(model.model.layers),
+        "hidden_dim": model.config.hidden_size,
+        "device": next(model.parameters()).device,
+        "dtype": next(model.parameters()).dtype,
+    }
 
 
 def estimate_vram_usage(
